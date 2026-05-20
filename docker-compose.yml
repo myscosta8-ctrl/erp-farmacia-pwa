@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: erp_farmacia_db
+    environment:
+      POSTGRES_DB: erp_farmacia
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_secure_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp_user -d erp_farmacia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: erp_farmacia_backend
+    environment:
+      DATABASE_URL: postgresql://erp_user:erp_secure_2024@postgres:5432/erp_farmacia
+      NODE_ENV: development
+      JWT_SECRET: erp-farmacia-super-secret-jwt-key-2024
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+    command: npm run dev
+    networks:
+      - erp_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: erp_farmacia_frontend
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+    command: npm run dev
+    networks:
+      - erp_network
+
+volumes:
+  postgres_data:
+
+networks:
+  erp_network:
+    driver: bridge
